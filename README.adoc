@@ -1,0 +1,6 @@
+= Graft
+`graft` is a command line tool for dry running a command. Calling
+`graft cmd` will execute `cmd` with a "view" of your file system, allowing you
+to to control what files `cmd` can access and how file modifications are stored.
+Additionally, `graft` can provide a log on the files `cmd` accessed (or
+attempted to access), as well as networks `cmd` attempted to join.
