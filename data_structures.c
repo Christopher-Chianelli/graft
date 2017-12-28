@@ -66,24 +66,25 @@ void *vector_get(struct vector *vector, int index) {
 }
 
 char *read_string_from_process_memory(pid_t process, void *addr) {
-  size_t length = 0;
+  size_t length = 1;
   long data;
   long *word = addr;
-  int limit = 1024;
+
+  int himagic = 0x80808080L;
+  int lomagic = 0x01010101L;
 
   do {
     data = ptrace(PTRACE_PEEKDATA, process, word + length, NULL);
-    for (int i = 0; i < sizeof(long); i++) {
-      unsigned long mask = ((1 << CHAR_BIT) - 1) << (i * CHAR_BIT);
-      if (!(data & mask)) {
-        return (char*) read_from_process_memory(process,addr,length+1);
+    if (((data - lomagic) & ~data & himagic) != 0) {
+      char *data_ptr = ((char *) &data) + sizeof(long);
+      int i;
+      for (i = 0; *data_ptr; i++) {
+        data_ptr--;
       }
+      char *out = (char *) read_from_process_memory(process,addr,sizeof(long)*length + i);
+      return out;
     }
     length++;
-    if (length > limit) {
-      fprintf(stderr, "Limit reached\n");
-      exit(1);
-    }
   } while (1);
   return NULL;
 }
@@ -99,10 +100,15 @@ void *read_from_process_memory(pid_t process, void *addr, size_t length) {
   }
 
   long *word = addr;
-  long *out = malloc(word_length);
+  long *out = malloc(word_length*sizeof(long));
 
   for (int i = 0; i < word_length; i++) {
     out[i] = ptrace(PTRACE_PEEKDATA, process, word + i, NULL);
+  }
+
+  char *end = (char *)(out + word_length + sizeof(long));
+  for (int i = length % sizeof(long); i > 0; i--) {
+    *(end-i) = '\0';
   }
 
   return (void *) out;
@@ -124,9 +130,97 @@ void write_to_process_memory(pid_t process, void *src, void *dst, size_t length)
     int diff = length % sizeof(long);
     long *orig = (long *) read_from_process_memory(process, target + i,
       sizeof(long));
-    //TODO: Make modifiy only length % sizeof(long) bytes or orig
+    //TODO: Make modifiy only length % sizeof(long) bytes of orig
     *orig = data[i];
     ptrace(PTRACE_POKEDATA, process, target + i, orig);
     free(orig);
   }
+}
+
+char *resolve_path_for_process(struct graft_process_data *child, const char *path) {
+  char *out = malloc(PATH_MAX);
+  char *curr_out = out;
+  const char *curr_path = path;
+
+  if (path[0] != '/') {
+    strcpy(out, child->cwd);
+    curr_out += strlen(child->cwd) + 1;
+    *curr_out = '/';
+    curr_out++;
+  }
+  else {
+    *curr_out = '/';
+    curr_out++;
+    curr_path++;
+  }
+
+  int last_was_slash = 1;
+
+  while (*curr_path != '\0') {
+    if (last_was_slash) {
+      switch (*curr_path) {
+        case '.':
+        switch (*(curr_path+1)) {
+          case '.':
+          switch (*(curr_path+2)) {
+            case '/': case '\0'://parent dir
+            curr_out--;
+            if (curr_out == out) {
+              curr_out++;
+              curr_path += 2;
+              last_was_slash = 1;
+              break;
+            }
+            do {
+              *curr_out = '\0';
+              curr_out--;
+            } while(*curr_out != '/');
+            last_was_slash = 1;
+            curr_path += 2;
+            break;
+
+            default:
+            *curr_out = *curr_path;
+            last_was_slash = *curr_out == '/';
+            curr_out++;
+            curr_path++;
+            break;
+          }
+          break;
+
+          case '/':
+          curr_path++;
+          case '\0':
+          last_was_slash = 1;
+          curr_path++;
+          break;
+
+          default:
+          *curr_out = *curr_path;
+          last_was_slash = *curr_out == '/';
+          curr_out++;
+          curr_path++;
+          break;
+        }
+        break;
+
+        default:
+        *curr_out = *curr_path;
+        last_was_slash = *curr_out == '/';
+        curr_out++;
+        curr_path++;
+        break;
+      }
+    }
+    else {
+      *curr_out = *curr_path;
+      last_was_slash = *curr_out == '/';
+      curr_out++;
+      curr_path++;
+    }
+  }
+  if (*(curr_out-1) == '/' && (curr_out-1) != out) {
+    *(curr_out - 1) = '\0';
+  }
+  return out;
 }

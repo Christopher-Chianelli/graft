@@ -81,11 +81,15 @@ void intercept_open(struct graft_process_data *child) {
     char *file_name = read_string_from_process_memory(child->pid, (void *) params[1]);
     int flags = (int) params[2];
     int mode = (int) params[3];
+    char *abs_file_name = resolve_path_for_process(child, file_name);
 
     printf("Open called with "
         "%s\n%d\n%d\n",
-        file_name,
+        abs_file_name,
         flags,mode);
+
+    free(file_name);
+    free(abs_file_name);
   }
   else { /* Syscall exit */
     printf("Open returned "

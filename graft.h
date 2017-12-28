@@ -41,6 +41,8 @@ extern void vector_pop(struct vector *vector);
 extern void vector_remove(struct vector *vector, int index);
 extern void *vector_get(struct vector *vector, int index);
 
+extern char *resolve_path_for_process(struct graft_process_data *child, const char *path);
+
 extern char *read_string_from_process_memory(pid_t process, void *addr);
 extern void *read_from_process_memory(pid_t process, void *addr, size_t length);
 extern void write_to_process_memory(pid_t process, void *src, void *dst, size_t length);
