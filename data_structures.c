@@ -1,3 +1,21 @@
+/*
+ * data_structures.c - data structures and functions for handling grafted processes
+ * Copyright (C) 2017  Christopher Chianelli
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "graft.h"
 
 #include <stdio.h>
@@ -177,6 +195,9 @@ char *resolve_path_for_process(struct graft_process_data *child, const char *pat
             } while(*curr_out != '/');
             last_was_slash = 1;
             curr_path += 2;
+            if (*curr_path == '\0' && (curr_out != out)) {
+              *curr_out = '\0';
+            }
             break;
 
             default:
