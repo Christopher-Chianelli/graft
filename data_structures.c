@@ -156,92 +156,15 @@ void write_to_process_memory(pid_t process, void *src, void *dst, size_t length)
 }
 
 char *resolve_path_for_process(struct graft_process_data *child, const char *path) {
-  char *out = malloc(PATH_MAX);
-  char *curr_out = out;
-  const char *curr_path = path;
-
   if (path[0] != '/') {
+    char *out = malloc(PATH_MAX);
     strcpy(out, child->cwd);
-    curr_out += strlen(child->cwd) + 1;
-    *curr_out = '/';
-    curr_out++;
+    int cwd_length = strlen(child->cwd);
+    out[cwd_length + 1] = '/';
+    strcpy(out + cwd_length + 2, path);
+    return realpath(path,out);
   }
   else {
-    *curr_out = '/';
-    curr_out++;
-    curr_path++;
+    return realpath(path, NULL);
   }
-
-  int last_was_slash = 1;
-
-  while (*curr_path != '\0') {
-    if (last_was_slash) {
-      switch (*curr_path) {
-        case '.':
-        switch (*(curr_path+1)) {
-          case '.':
-          switch (*(curr_path+2)) {
-            case '/': case '\0'://parent dir
-            curr_out--;
-            if (curr_out == out) {
-              curr_out++;
-              curr_path += 2;
-              last_was_slash = 1;
-              break;
-            }
-            do {
-              *curr_out = '\0';
-              curr_out--;
-            } while(*curr_out != '/');
-            last_was_slash = 1;
-            curr_path += 2;
-            if (*curr_path == '\0' && (curr_out != out)) {
-              *curr_out = '\0';
-            }
-            break;
-
-            default:
-            *curr_out = *curr_path;
-            last_was_slash = *curr_out == '/';
-            curr_out++;
-            curr_path++;
-            break;
-          }
-          break;
-
-          case '/':
-          curr_path++;
-          case '\0':
-          last_was_slash = 1;
-          curr_path++;
-          break;
-
-          default:
-          *curr_out = *curr_path;
-          last_was_slash = *curr_out == '/';
-          curr_out++;
-          curr_path++;
-          break;
-        }
-        break;
-
-        default:
-        *curr_out = *curr_path;
-        last_was_slash = *curr_out == '/';
-        curr_out++;
-        curr_path++;
-        break;
-      }
-    }
-    else {
-      *curr_out = *curr_path;
-      last_was_slash = *curr_out == '/';
-      curr_out++;
-      curr_path++;
-    }
-  }
-  if (*(curr_out-1) == '/' && (curr_out-1) != out) {
-    *(curr_out - 1) = '\0';
-  }
-  return out;
 }
