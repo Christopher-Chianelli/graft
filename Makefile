@@ -8,5 +8,5 @@ all: graft
 clean:
 	rm $(OUT)
 
-graft: $(SRCS)
+graft: $(SRCS) graft.h
 	$(GCC) $(FLAGS) -o $(OUT) $(SRCS)

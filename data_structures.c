@@ -94,13 +94,7 @@ char *read_string_from_process_memory(pid_t process, void *addr) {
   do {
     data = ptrace(PTRACE_PEEKDATA, process, word + length, NULL);
     if (((data - lomagic) & ~data & himagic) != 0) {
-      char *data_ptr = ((char *) &data) + sizeof(long);
-      int i;
-      for (i = 0; *data_ptr; i++) {
-        data_ptr--;
-      }
-      char *out = (char *) read_from_process_memory(process,addr,sizeof(long)*length + i);
-      return out;
+      return (char *) read_from_process_memory(process,addr,sizeof(long)*(length + 1));
     }
     length++;
   } while (1);
@@ -155,6 +149,38 @@ void write_to_process_memory(pid_t process, void *src, void *dst, size_t length)
   }
 }
 
+void *write_temp_to_process_memory(pid_t process, void *src, size_t length) {
+   char *stack_addr, *temp_addr;
+
+   stack_addr = (char *) stack_p;
+   /* Move further of red zone and make sure we have space for the file name */
+   stack_addr -= RED_ZONE + length;
+   temp_addr = stack_addr;
+
+   /* Write new file in lower part of the stack */
+   long *word = (long *) src;
+   size_t word_length;
+
+   if (length % sizeof(long) == 0) {
+     word_length = length/sizeof(long);
+   }
+   else {
+     word_length = length/sizeof(long) + 1;
+   }
+
+   for (int i = 0; i < word_length; i++) {
+     ptrace(PTRACE_POKEDATA, process, stack_addr, *word);
+     stack_addr += sizeof(long);
+     word++;
+   }
+   return temp_addr;
+}
+
+int strprefix(const char *query, const char *prefix)
+{
+    return strncmp(query, prefix, strlen(prefix)) == 0;
+}
+
 char *resolve_path_for_process(struct graft_process_data *child, const char *path) {
   if (path[0] != '/') {
     char *out = malloc(PATH_MAX);
@@ -162,9 +188,23 @@ char *resolve_path_for_process(struct graft_process_data *child, const char *pat
     int cwd_length = strlen(child->cwd);
     out[cwd_length + 1] = '/';
     strcpy(out + cwd_length + 2, path);
-    return realpath(path,out);
+    char *returnval = realpath(path, NULL);
+    if (returnval == NULL) {
+      return out;
+    }
+    else {
+      return returnval;
+    }
   }
   else {
-    return realpath(path, NULL);
+    char *returnval = realpath(path, NULL);
+    if (returnval == NULL) {
+      char *out = malloc(strlen(path) + 1);
+      strcpy(out,path);
+      return out;
+    }
+    else {
+      return returnval;
+    }
   }
 }

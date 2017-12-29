@@ -27,17 +27,42 @@ extern struct user_regs_struct regs;
 
 #ifdef __x86_64__
 typedef typeof(regs.rax) reg_v;
+#define RED_ZONE (128)
 #elif defined __i386__
 typedef typeof(regs.eax) reg_v;
+// TODO: Find out Red Zone for i386
+#define RED_ZONE (128)
 #endif
 
-reg_v params[8];
-reg_v syscall_out;
+extern reg_v params[8];
+extern reg_v syscall_out;
+extern reg_v stack_p;
 
 struct graft_process_data {
   pid_t pid;
   int in_syscall;
   char cwd[PATH_MAX];
+};
+
+struct graft_file {
+  char *real_path;
+  char *new_path;
+  char is_override, override_children;
+  char is_redirected;
+  char can_read, can_write, can_execute;
+};
+extern struct graft_file default_file_action;
+
+struct graft_open_file_request {
+  char *file_path;
+  int flags;
+  int mode;
+};
+
+struct graft_open_file_response {
+  int is_redirected;
+  int is_allowed;
+  char *new_file_path;
 };
 
 struct vector {
@@ -48,6 +73,8 @@ struct vector {
 };
 
 extern struct vector *child_processes;
+
+extern struct graft_open_file_response handle_open_file_request(struct graft_open_file_request request);
 
 extern void handle_syscall(struct graft_process_data *child);
 
@@ -61,10 +88,12 @@ extern void vector_pop(struct vector *vector);
 extern void vector_remove(struct vector *vector, int index);
 extern void *vector_get(struct vector *vector, int index);
 
+extern int strprefix(const char *query, const char *prefix);
 extern char *resolve_path_for_process(struct graft_process_data *child, const char *path);
 
 extern char *read_string_from_process_memory(pid_t process, void *addr);
 extern void *read_from_process_memory(pid_t process, void *addr, size_t length);
 extern void write_to_process_memory(pid_t process, void *src, void *dst, size_t length);
+extern void *write_temp_to_process_memory(pid_t process, void *src, size_t length);
 
 #endif /* CCHIANEL_GRAFT_H */
