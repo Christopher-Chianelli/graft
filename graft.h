@@ -30,25 +30,25 @@ typedef typeof(regs.rax) reg_v;
 #define RED_ZONE (128)
 #elif defined __i386__
 typedef typeof(regs.eax) reg_v;
-// TODO: Find out Red Zone for i386
-#define RED_ZONE (128)
+#define RED_ZONE (0)
 #endif
 
-extern reg_v params[8];
-extern reg_v syscall_out;
-extern reg_v stack_p;
+#define ALL_OPEN_FLAGS (O_RDONLY | O_WRONLY | O_RDWR)
 
 struct graft_process_data {
   pid_t pid;
   int in_syscall;
+  reg_v params[8];
+  reg_v syscall_out;
+  reg_v stack_p;
   char cwd[PATH_MAX];
 };
 
 struct graft_file {
-  char *real_path;
-  char *new_path;
+  const char *real_path;
+  const char *new_path;
   char is_override, override_children;
-  char is_redirected;
+  char is_redirected, flatten_children;
   char can_read, can_write, can_execute;
 };
 extern struct graft_file default_file_action;
@@ -72,11 +72,13 @@ struct vector {
   void *data;
 };
 
+extern const char *graft_data_dir;
 extern struct vector *child_processes;
 
 extern struct graft_open_file_response handle_open_file_request(struct graft_open_file_request request);
 
 extern void handle_syscall(struct graft_process_data *child);
+extern int copy_file(const char *from_file, const char *to_file);
 
 extern struct vector *vector_init(size_t type_size);
 extern void vector_free(struct vector *vector);
@@ -91,9 +93,9 @@ extern void *vector_get(struct vector *vector, int index);
 extern int strprefix(const char *query, const char *prefix);
 extern char *resolve_path_for_process(struct graft_process_data *child, const char *path);
 
-extern char *read_string_from_process_memory(pid_t process, void *addr);
-extern void *read_from_process_memory(pid_t process, void *addr, size_t length);
-extern void write_to_process_memory(pid_t process, void *src, void *dst, size_t length);
-extern void *write_temp_to_process_memory(pid_t process, void *src, size_t length);
+extern char *read_string_from_process_memory(struct graft_process_data *child, void *addr);
+extern void *read_from_process_memory(struct graft_process_data *child, void *addr, size_t length);
+extern void write_to_process_memory(struct graft_process_data *child, void *src, void *dst, size_t length);
+extern void *write_temp_to_process_memory(struct graft_process_data *child, void *src, size_t length);
 
 #endif /* CCHIANEL_GRAFT_H */

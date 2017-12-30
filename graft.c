@@ -30,6 +30,7 @@
 struct vector *child_processes;
 struct vector *graft_monitored_files;
 struct graft_file default_file_action;
+const char *graft_data_dir = DEFAULT_GRAFT_DATA_DIR;
 
 static int is_executable(char *candidate)
 {
@@ -93,10 +94,10 @@ static int is_open_allowed(struct graft_open_file_request request, struct graft_
   int user_permissions = (file_action->can_execute*01) | (file_action->can_write*02) | (file_action->can_read*04);
   int all_permissions = (user_permissions) | (user_permissions << 3) | (user_permissions << 6);
 
-  if (file_action->can_read && ((request.flags & O_RDWR) == O_RDONLY)) {
+  if (file_action->can_read && ((request.flags & ALL_OPEN_FLAGS) == O_RDONLY)) {
     return 1;
   }
-  else if (file_action->can_write && ((request.flags & O_RDWR) == O_WRONLY)) {
+  else if (file_action->can_write && ((request.flags & ALL_OPEN_FLAGS) == O_WRONLY)) {
     if (request.flags & O_CREAT) {
       return (all_permissions & request.mode) == request.mode;
     }
@@ -104,7 +105,7 @@ static int is_open_allowed(struct graft_open_file_request request, struct graft_
       return 1;
     }
   }
-  else if (file_action->can_read && file_action->can_write && ((request.flags & O_RDWR) == O_RDWR)){
+  else if (file_action->can_read && file_action->can_write && ((request.flags & ALL_OPEN_FLAGS) == O_RDWR)){
     if (request.flags & O_CREAT) {
       return (all_permissions & request.mode) == request.mode;
     }
@@ -115,6 +116,53 @@ static int is_open_allowed(struct graft_open_file_request request, struct graft_
   else {
     return 0;
   }
+}
+
+static char *get_redirected_file_path(char *file_path, struct graft_file *file_action) {
+	char *new_path = malloc(PATH_MAX);
+	strcpy(new_path, file_action->new_path);
+	char *end = new_path + strlen(new_path);
+
+	if (file_action->flatten_children) {
+		char *path_rest = file_path + strlen(file_action->real_path);
+		printf("%s\n", path_rest);
+		if (*path_rest != '\0') {
+			*end = '/';
+			end++;
+		}
+		while (*path_rest != '\0') {
+			switch (*path_rest) {
+				case '/':
+					*end = '>';
+					end++;
+					break;
+				case '>':
+					*end = '\\';
+					end++;
+					*end = '>';
+					end++;
+					break;
+
+				case '\\':
+					*end = '\\';
+					end++;
+					*end = '\\';
+					end++;
+					break;
+
+				default:
+					*end = *path_rest;
+					end++;
+					break;
+			}
+			path_rest++;
+		}
+		*end = '\0';
+	}
+	else {
+		strcpy(end, file_path + strlen(file_action->real_path));
+	}
+	return new_path;
 }
 
 struct graft_open_file_response handle_open_file_request(struct graft_open_file_request request) {
@@ -153,14 +201,14 @@ struct graft_open_file_response handle_open_file_request(struct graft_open_file_
     return response;
   }
 
-  response.is_redirected = file_action->is_redirected;
+  response.is_redirected = 0;
   response.is_allowed = is_open_allowed(request, file_action);
-  if (response.is_redirected) {
-    char *new_path = malloc(PATH_MAX);
-    strcpy(new_path, file_action->new_path);
-    char *end = new_path + strlen(new_path);
-    strcpy(end, request.file_path + strlen(file_action->real_path));
-    response.new_file_path = new_path;
+  if (response.is_allowed && !((request.flags & ALL_OPEN_FLAGS) == O_RDONLY) && file_action->is_redirected) {
+		response.is_redirected = 1;
+    response.new_file_path = get_redirected_file_path(request.file_path, file_action);
+		if (access(request.file_path, F_OK) == 0 && access(response.new_file_path, F_OK) == -1) {
+			copy_file(request.file_path,response.new_file_path);
+		}
   }
   else {
     response.new_file_path = request.file_path;
@@ -189,8 +237,15 @@ static void init(pid_t child) {
   temp.can_execute = 0;
   vector_push(graft_monitored_files, &temp);*/
 
-  default_file_action.real_path = NULL;
-  default_file_action.is_override = 0;
+  default_file_action.real_path = "/";
+	default_file_action.new_path = graft_data_dir;
+  default_file_action.is_override = 1;
+	default_file_action.is_redirected = 1;
+  default_file_action.override_children = 1;
+	default_file_action.flatten_children = 1;
+  default_file_action.can_write = 1;
+  default_file_action.can_read = 1;
+  default_file_action.can_execute = 1;
 }
 
 int main(int argc, char **argv) {

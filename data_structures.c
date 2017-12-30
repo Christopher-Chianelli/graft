@@ -22,7 +22,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#include <copyfile.h>
+#else
+#include <sys/sendfile.h>
+#endif
+
+#include <sys/stat.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
@@ -83,7 +91,7 @@ void *vector_get(struct vector *vector, int index) {
   return vector->data + (vector->type_size*index);
 }
 
-char *read_string_from_process_memory(pid_t process, void *addr) {
+char *read_string_from_process_memory(struct graft_process_data *child, void *addr) {
   size_t length = 1;
   long data;
   long *word = addr;
@@ -92,16 +100,16 @@ char *read_string_from_process_memory(pid_t process, void *addr) {
   int lomagic = 0x01010101L;
 
   do {
-    data = ptrace(PTRACE_PEEKDATA, process, word + length, NULL);
+    data = ptrace(PTRACE_PEEKDATA, child->pid, word + length, NULL);
     if (((data - lomagic) & ~data & himagic) != 0) {
-      return (char *) read_from_process_memory(process,addr,sizeof(long)*(length + 1));
+      return (char *) read_from_process_memory(child,addr,sizeof(long)*(length + 1));
     }
     length++;
   } while (1);
   return NULL;
 }
 
-void *read_from_process_memory(pid_t process, void *addr, size_t length) {
+void *read_from_process_memory(struct graft_process_data *child, void *addr, size_t length) {
   size_t word_length;
 
   if (length % sizeof(long) == 0) {
@@ -115,7 +123,7 @@ void *read_from_process_memory(pid_t process, void *addr, size_t length) {
   long *out = malloc(word_length*sizeof(long));
 
   for (int i = 0; i < word_length; i++) {
-    out[i] = ptrace(PTRACE_PEEKDATA, process, word + i, NULL);
+    out[i] = ptrace(PTRACE_PEEKDATA, child->pid, word + i, NULL);
   }
 
   char *end = (char *)(out + word_length + sizeof(long));
@@ -127,7 +135,7 @@ void *read_from_process_memory(pid_t process, void *addr, size_t length) {
 }
 
 //TODO: FIX ME!
-void write_to_process_memory(pid_t process, void *src, void *dst, size_t length) {
+void write_to_process_memory(struct graft_process_data *child, void *src, void *dst, size_t length) {
   size_t word_length = word_length = length/sizeof(long);
 
   long *target = (long *) dst;
@@ -135,24 +143,24 @@ void write_to_process_memory(pid_t process, void *src, void *dst, size_t length)
   int i;
 
   for (i = 0; i < word_length; i++) {
-    ptrace(PTRACE_POKEDATA, process, target + i, &(data[i]));
+    ptrace(PTRACE_POKEDATA, child->pid, target + i, &(data[i]));
   }
 
   if (length % sizeof(long) != 0) {
     int diff = length % sizeof(long);
-    long *orig = (long *) read_from_process_memory(process, target + i,
+    long *orig = (long *) read_from_process_memory(child, target + i,
       sizeof(long));
     //TODO: Make modifiy only length % sizeof(long) bytes of orig
     *orig = data[i];
-    ptrace(PTRACE_POKEDATA, process, target + i, orig);
+    ptrace(PTRACE_POKEDATA, child->pid, target + i, orig);
     free(orig);
   }
 }
 
-void *write_temp_to_process_memory(pid_t process, void *src, size_t length) {
+void *write_temp_to_process_memory(struct graft_process_data *child, void *src, size_t length) {
    char *stack_addr, *temp_addr;
 
-   stack_addr = (char *) stack_p;
+   stack_addr = (char *) child->stack_p;
    /* Move further of red zone and make sure we have space for the file name */
    stack_addr -= RED_ZONE + length;
    temp_addr = stack_addr;
@@ -169,7 +177,7 @@ void *write_temp_to_process_memory(pid_t process, void *src, size_t length) {
    }
 
    for (int i = 0; i < word_length; i++) {
-     ptrace(PTRACE_POKEDATA, process, stack_addr, *word);
+     ptrace(PTRACE_POKEDATA, child->pid, stack_addr, *word);
      stack_addr += sizeof(long);
      word++;
    }
@@ -186,13 +194,15 @@ char *resolve_path_for_process(struct graft_process_data *child, const char *pat
     char *out = malloc(PATH_MAX);
     strcpy(out, child->cwd);
     int cwd_length = strlen(child->cwd);
-    out[cwd_length + 1] = '/';
-    strcpy(out + cwd_length + 2, path);
-    char *returnval = realpath(path, NULL);
+    out[cwd_length] = '/';
+    out[cwd_length+1] = '\0';
+    strcpy(out + cwd_length + 1, path);
+    char *returnval = realpath(out, NULL);
     if (returnval == NULL) {
       return out;
     }
     else {
+      free(out);
       return returnval;
     }
   }
@@ -207,4 +217,40 @@ char *resolve_path_for_process(struct graft_process_data *child, const char *pat
       return returnval;
     }
   }
+}
+
+int copy_file(const char *from_file, const char *to_file) {
+    printf("OKAY\n");
+    int input, output;
+    if ((input = open(from_file, O_RDONLY)) == -1)
+    {
+        return -1;
+    }
+    if ((output = creat(to_file, 0660)) == -1)
+    {
+        close(input);
+        return -1;
+    }
+
+    //Here we use kernel-space copying for performance reasons
+    #if defined(__APPLE__) || defined(__FreeBSD__)
+    //fcopyfile works on FreeBSD and OS X 10.5+
+        int result = fcopyfile(input, output, 0, COPYFILE_ALL);
+    #else
+    //sendfile will work with non-socket output (i.e. regular file) on Linux 2.6.33+
+        struct stat fileinfo = {0};
+        fstat(input, &fileinfo);
+        off_t offset=0, total_sent=0;
+        ssize_t sent;
+
+        do {
+          sent = sendfile(output, input, &offset, fileinfo.st_size-total_sent);
+        } while(sent > -1 && (total_sent += sent) < fileinfo.st_size);
+        int result = 1;
+    #endif
+
+    close(input);
+    close(output);
+
+    return result;
 }
