@@ -1,5 +1,3 @@
-#ifndef CCHIANEL_GRAFT_H
-#define CCHIANEL_GRAFT_H
 /*
  * graft.h - interfaces for the graft program
  * Copyright (C) 2017  Christopher Chianelli
@@ -18,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifndef CCHIANEL_GRAFT_H
+#define CCHIANEL_GRAFT_H
+
 #include <limits.h>
 
 #include <sys/user.h>
@@ -35,23 +36,27 @@ typedef typeof(regs.eax) reg_v;
 
 #define ALL_OPEN_FLAGS (O_RDONLY | O_WRONLY | O_RDWR)
 
-struct graft_process_data {
-  pid_t pid;
-  int in_syscall;
-  reg_v params[8];
-  reg_v syscall_out;
-  reg_v stack_p;
-  char cwd[PATH_MAX];
-};
-
 struct graft_file {
+  // The path this rule represent
   const char *real_path;
-  const char *new_path;
-  char is_override, override_children;
-  char is_redirected, flatten_children;
+
+  // The redirected file path
+  char *new_path;
+
+  // If is_override is set, make all syscalls use new_path instead of real_path
+  // If override_children is set, also override syscalls for children of this directory
+  //If flatten_children is set, put all desendants into new_path, renaming the file to keep path info
+  char is_override, override_children, flatten_children;
+
+  // If redirect_on_x is set, redirect on all x operation
+  char redirect_on_read, redirect_on_write, redirect_on_execute;
+
+  // If copy_on_x is set, copy the file to new_path if it does not exist
+  char copy_on_read, copy_on_write, copy_on_execute;
+
+  // If can_x is set, allow x operation
   char can_read, can_write, can_execute;
 };
-extern struct graft_file default_file_action;
 
 struct graft_open_file_request {
   char *file_path;
@@ -72,24 +77,46 @@ struct vector {
   void *data;
 };
 
+struct graft_process_data {
+  pid_t pid;
+  int in_syscall;
+  reg_v params[8];
+  reg_v syscall_out;
+  reg_v stack_p;
+  struct graft_file default_file_action;
+  char cwd[PATH_MAX];
+};
+
+enum diff_format {
+  LINE_DIFF,
+  CHAR_DIFF
+};
+
 extern const char *graft_data_dir;
 extern struct vector *child_processes;
 
-extern struct graft_open_file_response handle_open_file_request(struct graft_open_file_request request);
+extern void graft_setup_child(pid_t pid, struct graft_process_data *parent);
+extern void graft_cleanup_child(struct graft_process_data *child, int i);
+extern struct graft_open_file_response handle_open_file_request(struct graft_process_data *child, struct graft_open_file_request request);
 
 extern void handle_syscall(struct graft_process_data *child);
+
 extern int copy_file(const char *from_file, const char *to_file);
+extern void depth_first_access_dir(const char *path, int (*action)(const char *, const char *, int));
 
 extern struct vector *vector_init(size_t type_size);
 extern void vector_free(struct vector *vector);
 extern int vector_size(struct vector *vector);
-extern void vector_push(struct vector *vector, void *data);
-extern void vector_prepend(struct vector *vector, void *data);
-extern void vector_insert(struct vector *vector, void *data, int index);
+extern void vector_push(struct vector *vector, const void *data);
+extern void vector_prepend(struct vector *vector, const void *data);
+extern void vector_insert(struct vector *vector, const void *data, int index);
 extern void vector_pop(struct vector *vector);
 extern void vector_remove(struct vector *vector, int index);
 extern void *vector_get(struct vector *vector, int index);
+extern void vector_set(struct vector *vector, const void *data, int index);
 
+extern struct vector *get_diff(const char *orig_str, int orig_length,
+  const char *new_str, int new_length, enum diff_format format);
 extern int strprefix(const char *query, const char *prefix);
 extern char *resolve_path_for_process(struct graft_process_data *child, const char *path);
 

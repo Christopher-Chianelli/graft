@@ -1,3 +1,21 @@
+/*
+ * open_intercepts.c - intercept grafted processes open syscalls
+ * Copyright (C) 2017  Christopher Chianelli
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "intercepts.h"
 
 // (2) sys_open filename flags mode
@@ -26,7 +44,7 @@ void graft_intercept_open(struct graft_process_data *child) {
     request.flags = flags;
     request.mode = mode;
 
-    struct graft_open_file_response response = handle_open_file_request(request);
+    struct graft_open_file_response response = handle_open_file_request(child, request);
     if (!response.is_allowed) {
       child->params[1] = (reg_v) NULL;
     }
@@ -80,13 +98,13 @@ void graft_intercept_open_at(struct graft_process_data *child) {
     request.flags = flags;
     request.mode = mode;
 
-    struct graft_open_file_response response = handle_open_file_request(request);
+    struct graft_open_file_response response = handle_open_file_request(child, request);
     if (!response.is_allowed) {
       child->params[2] = (reg_v) NULL;
     }
     else {
       if (response.is_redirected) {
-        printf("Redirecting to %s\n", response.new_file_path);
+        //printf("Redirecting to %s\n", response.new_file_path);
         void *new_file_path = write_temp_to_process_memory(child,
           response.new_file_path,strlen(response.new_file_path)+1);
         child->params[2] = (reg_v) new_file_path;

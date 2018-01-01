@@ -1,5 +1,5 @@
 GCC := gcc
-FLAGS := -Wall
+FLAGS := -Wall -g
 SRCS := $(shell find $(SOURCEDIR) -name '*.c')
 OUT := graft
 GRAFT_DATA_DIR ?= $(HOME)/.local/share/graft
