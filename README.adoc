@@ -1,3 +1,5 @@
+== * IMPORTANT * `graft` is a wip command; as such, until its first stable release, you should not use `graft` for sandboxing commands.
+
 = Graft
 
 `graft` is a command line tool for dry running a command. Calling
@@ -5,3 +7,33 @@
 to to control what files `cmd` can access and how file modifications are stored.
 Additionally, `graft` can provide a log on the files `cmd` accessed (or
 attempted to access), as well as networks `cmd` attempted to join.
+
+= Contributing
+
+== Opening an Issue
+
+When you open an issue, you *must* provide the following:
+
+- System Architecture (ex: x86, i386)
+
+- Operating System (ex: Fedora, Ubuntu)
+
+- Reproducer (a series of steps that can reproduce the bug consistently)
+
+- Verifier (a series of steps that can verify the bug is fixed)
+
+== Opening a PR
+
+`graft` is in very early stages right now so I strongly recommend *not* opening PR's since API changes will be frequent.
+If you do open a PR, then provide the following:
+
+- A summary of what your PR does
+
+- Regressions tests for your PR (so we know if something broke your PR)
+
+Your PR will then be reviewed by a maintainer of the project. If all is well, it is merged; otherwise the reviewer will
+leave comments explaining why your PR wasn't merged. In some cases, you can take their feedback to modifiy your PR and
+it will be reviewed again. In other cases, the reviewer may close the PR if they feel the changes are not in the best
+interest for the project.
+
+Please rebase your PR on master; if your PR is not rebased on master, your PR will not be accepted.
