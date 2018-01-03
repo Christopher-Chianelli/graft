@@ -14,6 +14,8 @@ attempted to access), as well as networks `cmd` attempted to join.
 
 When you open an issue, you *must* provide the following:
 
+- A short description of the issue
+
 - System Architecture (ex: x86, i386)
 
 - Operating System (ex: Fedora, Ubuntu)
