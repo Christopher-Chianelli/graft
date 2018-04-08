@@ -16,7 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "graft.h"
+#include <graft.h>
+#include <file/file_manager.h>
+#include <diff/diff.h>
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -33,6 +35,41 @@ struct vector *child_processes;
 struct vector *graft_monitored_files;
 struct graft_file default_file_action;
 const char *graft_data_dir = DEFAULT_GRAFT_DATA_DIR;
+
+int strprefix(const char *query, const char *prefix)
+{
+    return strncmp(query, prefix, strlen(prefix)) == 0;
+}
+
+char *resolve_path_for_process(struct graft_process_data *child, const char *path) {
+  if (path[0] != '/') {
+    char *out = malloc(PATH_MAX);
+    strcpy(out, child->cwd);
+    int cwd_length = strlen(child->cwd);
+    out[cwd_length] = '/';
+    out[cwd_length+1] = '\0';
+    strcpy(out + cwd_length + 1, path);
+    char *returnval = realpath(out, NULL);
+    if (returnval == NULL) {
+      return out;
+    }
+    else {
+      free(out);
+      return returnval;
+    }
+  }
+  else {
+    char *returnval = realpath(path, NULL);
+    if (returnval == NULL) {
+      char *out = malloc(strlen(path) + 1);
+      strcpy(out,path);
+      return out;
+    }
+    else {
+      return returnval;
+    }
+  }
+}
 
 static int is_executable(char *candidate)
 {

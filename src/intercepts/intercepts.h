@@ -19,7 +19,9 @@
 #ifndef CCHIANEL_GRAFT_INTERCEPTS_H
 #define CCHIANEL_GRAFT_INTERCEPTS_H
 
-#include "../graft.h"
+#include <graft.h>
+#include <process/external_process_manipulator.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

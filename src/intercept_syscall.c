@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "intercepts/intercepts.h"
+#include <intercepts/intercepts.h>
 
 #include <stdarg.h>
 

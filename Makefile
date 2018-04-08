@@ -1,6 +1,9 @@
 GCC := gcc
-FLAGS := -Wall -g
-SRCS := $(shell find $(SOURCEDIR) -name '*.c')
+MK_ROOT := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+SOURCE_DIR := $(MK_ROOT)/src
+FLAGS := -Wall -g -I$(SOURCE_DIR)
+SRCS := $(shell find $(SOURCE_DIR) -name '*.c')
+HEADERS := $(shell find $(SOURCE_DIR) -name '*.h')
 OUT := graft
 GRAFT_DATA_DIR ?= $(HOME)/.local/share/graft
 
@@ -13,5 +16,5 @@ clean:
 $(GRAFT_DATA_DIR):
 	mkdir -m 700 -p $(GRAFT_DATA_DIR)
 
-graft: $(GRAFT_DATA_DIR) $(SRCS) graft.h
+graft: $(GRAFT_DATA_DIR) $(SRCS) $(HEADERS)
 	$(GCC) $(FLAGS) -DDEFAULT_GRAFT_DATA_DIR=\"$(GRAFT_DATA_DIR)\" -o $(OUT) $(SRCS)

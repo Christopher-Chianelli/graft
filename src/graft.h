@@ -19,6 +19,9 @@
 #ifndef CCHIANEL_GRAFT_H
 #define CCHIANEL_GRAFT_H
 
+
+#include <data_structures/vector.h>
+
 #include <limits.h>
 
 #include <sys/user.h>
@@ -70,13 +73,6 @@ struct graft_open_file_response {
   char *new_file_path;
 };
 
-struct vector {
-  size_t type_size;
-  size_t vector_size;
-  size_t array_size;
-  void *data;
-};
-
 struct graft_process_data {
   pid_t pid;
   int in_syscall;
@@ -85,11 +81,6 @@ struct graft_process_data {
   reg_v stack_p;
   struct graft_file default_file_action;
   char cwd[PATH_MAX];
-};
-
-enum diff_format {
-  LINE_DIFF,
-  CHAR_DIFF
 };
 
 extern const char *graft_data_dir;
@@ -101,28 +92,7 @@ extern struct graft_open_file_response handle_open_file_request(struct graft_pro
 
 extern void handle_syscall(struct graft_process_data *child);
 
-extern int copy_file(const char *from_file, const char *to_file);
-extern void depth_first_access_dir(const char *path, int (*action)(const char *, const char *, int));
-
-extern struct vector *vector_init(size_t type_size);
-extern void vector_free(struct vector *vector);
-extern int vector_size(struct vector *vector);
-extern void vector_push(struct vector *vector, const void *data);
-extern void vector_prepend(struct vector *vector, const void *data);
-extern void vector_insert(struct vector *vector, const void *data, int index);
-extern void vector_pop(struct vector *vector);
-extern void vector_remove(struct vector *vector, int index);
-extern void *vector_get(struct vector *vector, int index);
-extern void vector_set(struct vector *vector, const void *data, int index);
-
-extern struct vector *get_diff(const char *orig_str, int orig_length,
-  const char *new_str, int new_length, enum diff_format format);
 extern int strprefix(const char *query, const char *prefix);
 extern char *resolve_path_for_process(struct graft_process_data *child, const char *path);
-
-extern char *read_string_from_process_memory(struct graft_process_data *child, void *addr);
-extern void *read_from_process_memory(struct graft_process_data *child, void *addr, size_t length);
-extern void write_to_process_memory(struct graft_process_data *child, void *src, void *dst, size_t length);
-extern void *write_temp_to_process_memory(struct graft_process_data *child, void *src, size_t length);
 
 #endif /* CCHIANEL_GRAFT_H */

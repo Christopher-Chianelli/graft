@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "intercepts.h"
+#include <intercepts/intercepts.h>
 
 // (2) sys_open filename flags mode
 void graft_intercept_open(struct graft_process_data *child) {

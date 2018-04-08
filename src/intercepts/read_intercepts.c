@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "intercepts.h"
+#include <intercepts/intercepts.h>
 
 // (0) sys_read fd buf count
 void graft_intercept_read(struct graft_process_data *child) {

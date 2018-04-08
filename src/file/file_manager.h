@@ -1,5 +1,5 @@
 /*
- * write_intercepts.c - intercept grafted processes write syscalls
+ * file_manager.h - file interfaces for the graft program
  * Copyright (C) 2017  Christopher Chianelli
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,23 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "intercepts.h"
+#ifndef CCHIANEL_GRAFT_FILE_MANAGER_H
 
-// (1) sys_write fd buf count
-void graft_intercept_write(struct graft_process_data *child) {
-  if(child->in_syscall == 0) {
-    unsigned int fd = (unsigned int) child->params[1];
-    size_t count = (size_t) child->params[3];
-    char *buf = (char *) read_from_process_memory(child,
-      (void *) child->params[2],
-      count);
-    graft_log_intercept((int) child->params[0], fd, buf,
-      (int) count);
-    free(buf);
-  }
-  else { /* Syscall exit */
-    // DO NOTHING
-    //printf("Write returned "
-    //  "with %llu\n", child->syscall_out);
-  }
-}
+#define CCHIANEL_GRAFT_FILE_MANAGER_H
+
+extern int copy_file(const char *from_file, const char *to_file);
+extern void depth_first_access_dir(const char *path, int (*action)(const char *, const char *, int));
+
+#endif /* CCHIANEL_GRAFT_FILE_MANAGER_H */
