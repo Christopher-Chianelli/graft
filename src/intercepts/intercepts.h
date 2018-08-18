@@ -48,5 +48,8 @@ extern void graft_intercept_open(struct graft_process_data *child);
 // (257) sys_openat dfd filename flags mode
 extern void graft_intercept_open_at(struct graft_process_data *child);
 
+// TODO: doc calling
+extern void graft_intercept_getdents(struct graft_process_data *child);
+
 
 #endif //CCHIANEL_GRAFT_INTERCEPTS_H

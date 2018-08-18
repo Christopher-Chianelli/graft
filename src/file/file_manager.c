@@ -1,4 +1,5 @@
 #include <file/file_manager.h>
+#include <data_structures/vector.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,107 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+
+struct fd_file_list {
+  unsigned int fd;
+  size_t entries_read;
+  const char *path;
+  struct vector *file_list;
+};
+
+struct vector *fd_file_list_list = NULL;
+
+void init_file_list_for_fd(unsigned int fd, const char *path) {
+  if (fd_file_list_list == NULL) {
+      fd_file_list_list = vector_init(sizeof(struct fd_file_list));
+  }
+  DIR *dir = opendir(path);
+  struct dirent *entry;
+
+  struct vector *file_list = vector_init(sizeof(struct file_info));
+  // TODO: Check for errors
+  while ((entry = readdir(dir)) != NULL) {
+    struct file_info info;
+    info.d_ino = entry->d_ino;
+    strcpy(entry->d_name, info.d_name);
+    vector_push(file_list, &info);
+  }
+  closedir(dir);
+
+  struct fd_file_list to_add;
+  to_add.fd = fd;
+  to_add.entries_read = 0;
+  to_add.path = path;
+  to_add.file_list = file_list;
+  vector_push(fd_file_list_list, &to_add);
+}
+
+void remove_file_list_for_fd(unsigned int fd) {
+  for (int i = 0; i < vector_size(fd_file_list_list); i++) {
+    struct fd_file_list *fd_file_list = vector_get(fd_file_list_list,i);
+    if (fd_file_list->fd == fd) {
+      vector_free(fd_file_list->file_list);
+      vector_remove(fd_file_list_list, i);
+      return;
+    }
+  }
+}
+
+struct vector *get_file_list_for_fd(unsigned int fd) {
+  for (int i = 0; i < vector_size(fd_file_list_list); i++) {
+    struct fd_file_list *fd_file_list = vector_get(fd_file_list_list,i);
+    if (fd_file_list->fd == fd) {
+      return fd_file_list->file_list;
+    }
+  }
+  return NULL;
+}
+
+size_t get_entries_read_for_fd(unsigned int fd) {
+  for (int i = 0; i < vector_size(fd_file_list_list); i++) {
+    struct fd_file_list *fd_file_list = vector_get(fd_file_list_list,i);
+    if (fd_file_list->fd == fd) {
+      return fd_file_list->entries_read;
+    }
+  }
+  return -1;
+}
+
+void set_entries_read_for_fd(unsigned int fd, size_t entries_read) {
+  for (int i = 0; i < vector_size(fd_file_list_list); i++) {
+    struct fd_file_list *fd_file_list = vector_get(fd_file_list_list,i);
+    if (fd_file_list->fd == fd) {
+      fd_file_list->entries_read = entries_read;
+      return;
+    }
+  }
+}
+
+void add_file_to_fd(unsigned int fd, struct file_info *file) {
+  vector_push(get_file_list_for_fd(fd), &file);
+}
+
+void remove_file_from_fd(unsigned int fd, struct file_info *file) {
+  struct vector *fd_file_list = get_file_list_for_fd(fd);
+  for (int i = 0; i < vector_size(fd_file_list); i++) {
+    struct file_info *fd_file = vector_get(fd_file_list, i);
+    if (fd_file->d_ino == file->d_ino) {
+      vector_remove(fd_file_list, i);
+      return;
+    }
+  }
+}
+
+void override_file_from_fd(unsigned int fd, struct file_info *old_file, struct file_info *new_file) {
+  struct vector *fd_file_list = get_file_list_for_fd(fd);
+  for (int i = 0; i < vector_size(fd_file_list); i++) {
+    struct file_info *fd_file = vector_get(fd_file_list, i);
+    if (fd_file->d_ino == old_file->d_ino) {
+      vector_set(fd_file_list, new_file, i);
+      return;
+    }
+  }
+}
 
 int copy_file(const char *from_file, const char *to_file) {
     int input, output;
@@ -52,7 +154,7 @@ int copy_file(const char *from_file, const char *to_file) {
     return result;
 }
 
-static int is_dir(const char *dir_path)
+int is_dir(const char *dir_path)
 {
     struct stat sb;
 

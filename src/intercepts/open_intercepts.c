@@ -17,7 +17,9 @@
  */
 
 #include <intercepts/intercepts.h>
+#include <file/file_manager.h>
 
+struct graft_open_file_request file_request;
 // (2) sys_open filename flags mode
 void graft_intercept_open(struct graft_process_data *child) {
   if(child->in_syscall == 0) {
@@ -39,12 +41,11 @@ void graft_intercept_open(struct graft_process_data *child) {
     }
 
     graft_log_intercept((int) child->params[0], file_name, flags, mode);
-    struct graft_open_file_request request;
-    request.file_path = abs_file_name;
-    request.flags = flags;
-    request.mode = mode;
+    file_request.file_path = abs_file_name;
+    file_request.flags = flags;
+    file_request.mode = mode;
 
-    struct graft_open_file_response response = handle_open_file_request(child, request);
+    struct graft_open_file_response response = handle_open_file_request(child, file_request);
     if (!response.is_allowed) {
       child->params[1] = (reg_v) NULL;
     }
@@ -61,12 +62,14 @@ void graft_intercept_open(struct graft_process_data *child) {
 
     if (file_name != NULL) {
       free(file_name);
-      free(abs_file_name);
     }
   }
   else { /* Syscall exit */
-    //printf("Open returned "
-    //  "with %llu\n", child->syscall_out);
+    if (is_dir(file_request.file_path)) {
+      init_file_list_for_fd(child->syscall_out, file_request.file_path);
+      free(file_request.file_path);
+      file_request.file_path = NULL;
+    }
   }
 }
 
@@ -93,12 +96,11 @@ void graft_intercept_open_at(struct graft_process_data *child) {
       abs_file_name = NULL;
     }
 
-    struct graft_open_file_request request;
-    request.file_path = abs_file_name;
-    request.flags = flags;
-    request.mode = mode;
+    file_request.file_path = abs_file_name;
+    file_request.flags = flags;
+    file_request.mode = mode;
 
-    struct graft_open_file_response response = handle_open_file_request(child, request);
+    struct graft_open_file_response response = handle_open_file_request(child, file_request);
     if (!response.is_allowed) {
       child->params[2] = (reg_v) NULL;
     }
@@ -115,11 +117,13 @@ void graft_intercept_open_at(struct graft_process_data *child) {
 
     if (file_name != NULL) {
       free(file_name);
-      free(abs_file_name);
     }
   }
   else { /* Syscall exit */
-    //printf("OpenAt returned "
-    //  "with %llu\n", child->syscall_out);
+    if (is_dir(file_request.file_path)) {
+      init_file_list_for_fd(child->syscall_out, file_request.file_path);
+      free(file_request.file_path);
+      file_request.file_path = NULL;
+    }
   }
 }

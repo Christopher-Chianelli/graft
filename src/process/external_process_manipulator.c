@@ -54,7 +54,7 @@ void *read_from_process_memory(struct graft_process_data *child, void *addr, siz
 
 //TODO: FIX ME!
 void write_to_process_memory(struct graft_process_data *child, void *src, void *dst, size_t length) {
-  size_t word_length = word_length = length/sizeof(long);
+  size_t word_length = length/sizeof(long);
 
   long *target = (long *) dst;
   long *data = (long *) src;
@@ -65,11 +65,15 @@ void write_to_process_memory(struct graft_process_data *child, void *src, void *
   }
 
   if (length % sizeof(long) != 0) {
-    int diff = length % sizeof(long);
+    int diff = length - (sizeof(long) * word_length);
     long *orig = (long *) read_from_process_memory(child, target + i,
       sizeof(long));
     //TODO: Make modifiy only length % sizeof(long) bytes of orig
-    *orig = data[i];
+    long set_mask = (1 << (diff * CHAR_BIT)) - 1;
+    long to_set = data[i] & set_mask;
+    long clear_mask = ~set_mask;
+    long orig_clear = *orig & clear_mask;
+    *orig = to_set | orig_clear;
     ptrace(PTRACE_POKEDATA, child->pid, target + i, orig);
     free(orig);
   }

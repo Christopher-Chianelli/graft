@@ -20,6 +20,24 @@
 
 #define CCHIANEL_GRAFT_FILE_MANAGER_H
 
+#include <stdlib.h>
+#include <sys/types.h>
+
+struct file_info {
+	ino_t        d_ino;    /* 64-bit inode number */
+    char           d_name[256]; /* Filename (null-terminated) */
+};
+
+extern void init_file_list_for_fd(unsigned int fd, const char *path);
+extern void remove_file_list_for_fd(unsigned int fd);
+extern struct vector *get_file_list_for_fd(unsigned int fd);
+extern void add_file_to_fd(unsigned int fd, struct file_info *file);
+extern void remove_file_from_fd(unsigned int fd, struct file_info *file);
+extern void override_file_from_fd(unsigned int fd, struct file_info *old_file, struct file_info *new_file);
+extern size_t get_entries_read_for_fd(unsigned int fd);
+extern void set_entries_read_for_fd(unsigned int fd, size_t entries_read);
+
+extern int is_dir(const char *dir_path);
 extern int copy_file(const char *from_file, const char *to_file);
 extern void depth_first_access_dir(const char *path, int (*action)(const char *, const char *, int));
 

@@ -1,1 +1,3 @@
 graft
+.*
+!/.gitignore
