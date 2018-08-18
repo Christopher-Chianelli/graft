@@ -40,7 +40,7 @@ void graft_intercept_open(struct graft_process_data *child) {
       abs_file_name = NULL;
     }
 
-    graft_log_intercept((int) child->params[0], file_name, flags, mode);
+    graft_log_intercept(child->orig_syscall, file_name, flags, mode);
     file_request.file_path = abs_file_name;
     file_request.flags = flags;
     file_request.mode = mode;
@@ -87,8 +87,7 @@ void graft_intercept_open_at(struct graft_process_data *child) {
     int flags = (int) child->params[3];
     int mode = (int) child->params[4];
     char *abs_file_name;
-
-    graft_log_intercept((int) child->params[0], fd, file_name, flags, mode);
+    graft_log_intercept(child->orig_syscall, fd, file_name, flags, mode);
     if (file_name != NULL) {
       abs_file_name = resolve_path_for_process(child, file_name);
     }

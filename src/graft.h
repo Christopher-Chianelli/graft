@@ -76,6 +76,7 @@ struct graft_open_file_response {
 struct graft_process_data {
   pid_t pid;
   int in_syscall;
+  reg_v orig_syscall;
   reg_v params[8];
   reg_v syscall_out;
   reg_v stack_p;

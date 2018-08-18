@@ -86,6 +86,11 @@ void set_syscall_out(struct graft_process_data *child) {
   ptrace(PTRACE_SETREGS, child->pid, NULL, &regs);
 }
 
+void skip_syscall(struct graft_process_data *child) {
+	child->params[0] = SYS_getpid;
+	set_syscall_params(child);
+}
+
 static int is_data_binary(char *buf, int count) {
   if (buf[count] != '\0') {
     return 1;
@@ -139,7 +144,7 @@ void graft_log_intercept(int syscall, ...) {
   va_start (ap, syscall);
 
   int fd, count, flags, mode;
-  char *buf, *filename;
+  char *buf, *filename, *entires_read;
 
   switch (syscall) {
     // fd buf count
@@ -169,6 +174,11 @@ void graft_log_intercept(int syscall, ...) {
       printf("%s %d %s %d %d\n", get_syscall_name(syscall), fd, filename, flags, mode);
       break;
 
+    case SYS_getdents:
+    	entires_read = va_arg(ap, char *);
+    	printf("%s %s\n", get_syscall_name(syscall), entires_read);
+    	break;
+
     default:
       if (syscall > MAX_VALID_SYSCALL) {
         printf("Invalid Syscall: %d\n", syscall);
@@ -182,8 +192,12 @@ void graft_log_intercept(int syscall, ...) {
 }
 
 void handle_syscall(struct graft_process_data *child) {
+
   intercept_start(child);
-  switch (child->params[0]) {
+  if (!child->in_syscall) {
+    child->orig_syscall = child->params[0];
+  }
+  switch (child->orig_syscall) {
   case SYS_read:
     graft_intercept_read(child);
     break;

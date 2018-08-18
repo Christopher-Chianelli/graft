@@ -34,6 +34,7 @@
 
 extern void set_syscall_params(struct graft_process_data *child);
 extern void set_syscall_out(struct graft_process_data *child);
+extern void skip_syscall();
 
 extern void graft_log_intercept(int syscall, ...);
 
@@ -48,7 +49,7 @@ extern void graft_intercept_open(struct graft_process_data *child);
 // (257) sys_openat dfd filename flags mode
 extern void graft_intercept_open_at(struct graft_process_data *child);
 
-// TODO: doc calling
+// sys_getdents fd, struct linux_dirent buf count;
 extern void graft_intercept_getdents(struct graft_process_data *child);
 
 

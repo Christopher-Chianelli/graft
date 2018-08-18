@@ -23,12 +23,18 @@ void graft_intercept_write(struct graft_process_data *child) {
   if(child->in_syscall == 0) {
     unsigned int fd = (unsigned int) child->params[1];
     size_t count = (size_t) child->params[3];
-    char *buf = (char *) read_from_process_memory(child,
-      (void *) child->params[2],
-      count);
-    graft_log_intercept((int) child->params[0], fd, buf,
-      (int) count);
-    free(buf);
+    if (count <= 80) {
+      char *buf = (char *) read_from_process_memory(child,
+        (void *) child->params[2],
+        count);
+      graft_log_intercept((int) child->params[0], fd, buf,
+        (int) count);
+      free(buf);
+    }
+    else {
+        graft_log_intercept((int) child->params[0], fd, "Data to long to display",
+          23);
+    }
   }
   else { /* Syscall exit */
     // DO NOTHING

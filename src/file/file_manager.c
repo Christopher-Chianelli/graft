@@ -39,7 +39,7 @@ void init_file_list_for_fd(unsigned int fd, const char *path) {
   while ((entry = readdir(dir)) != NULL) {
     struct file_info info;
     info.d_ino = entry->d_ino;
-    strcpy(entry->d_name, info.d_name);
+    strcpy(info.d_name, entry->d_name);
     vector_push(file_list, &info);
   }
   closedir(dir);
