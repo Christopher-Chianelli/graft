@@ -17,6 +17,7 @@
  */
 
 #include <graft.h>
+#include <intercepts/intercepts.h>
 #include <file/file_manager.h>
 #include <diff/diff.h>
 
@@ -34,6 +35,7 @@
 struct vector *child_processes;
 struct vector *graft_monitored_files;
 struct graft_file default_file_action;
+struct graft_config graft_config;
 const char *graft_data_dir = DEFAULT_GRAFT_DATA_DIR;
 
 int strprefix(const char *query, const char *prefix)
@@ -424,6 +426,10 @@ void graft_cleanup_child(struct graft_process_data *child, int i) {
 	vector_remove(child_processes, i);
 }
 
+static void load_config() {
+	graft_config.default_intercept_directory = "bin/intercepts";
+}
+
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		fprintf(stderr, "Usage: %s program\n", argv[0]);
@@ -447,8 +453,10 @@ int main(int argc, char **argv) {
     return status;
   }
   else {
-		child_processes = vector_init(sizeof(struct graft_process_data));
-	  graft_monitored_files = vector_init(sizeof(struct graft_file));
+	load_config();
+	init_intercepts(&graft_config);
+    child_processes = vector_init(sizeof(struct graft_process_data));
+	graft_monitored_files = vector_init(sizeof(struct graft_file));
     graft_setup_child(child, NULL);
     siginfo_t infop;
     while(vector_size(child_processes) > 0) {

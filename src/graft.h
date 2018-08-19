@@ -84,6 +84,10 @@ struct graft_process_data {
   char cwd[PATH_MAX];
 };
 
+struct graft_config {
+	const char *default_intercept_directory;
+};
+
 extern const char *graft_data_dir;
 extern struct vector *child_processes;
 

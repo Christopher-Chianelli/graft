@@ -1,10 +1,13 @@
 #include <data_structures/vector.h>
 #include <intercepts/intercepts.h>
+#include <intercepts/intercept_loader.h>
 #include <file/file_manager.h>
 #include <process/external_process_manipulator.h>
 
 #include <stdlib.h>
 #include <sys/types.h>
+
+#include <sys/syscall.h>
 
 struct my_linux_dirent {
     long           d_ino;
@@ -74,4 +77,11 @@ void graft_intercept_getdents(struct graft_process_data *child) {
 	      free(log_out);
 	    }
   }
+}
+
+int init_directory_intercepts(struct graft_intercept_manager *graft_intercept_manager) {
+    #ifdef SYS_getdents
+	graft_intercept_manager->syscall_intercept_functions[SYS_getdents] = &graft_intercept_getdents;
+    #endif
+	return 0;
 }

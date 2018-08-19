@@ -17,6 +17,9 @@
  */
 
 #include <intercepts/intercepts.h>
+#include <intercepts/intercept_loader.h>
+
+#include <sys/syscall.h>
 
 // (0) sys_read fd buf count
 void graft_intercept_read(struct graft_process_data *child) {
@@ -37,4 +40,12 @@ void graft_intercept_read(struct graft_process_data *child) {
         5);
     }
   }
+}
+
+
+int init_read_intercepts(struct graft_intercept_manager *graft_intercept_manager) {
+    #ifdef SYS_read
+	graft_intercept_manager->syscall_intercept_functions[SYS_read] = &graft_intercept_read;
+    #endif
+	return 0;
 }

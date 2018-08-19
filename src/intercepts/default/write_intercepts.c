@@ -15,11 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #include <intercepts/intercepts.h>
+#include <intercepts/intercept_loader.h>
+
+#include <sys/syscall.h>
 
 // (1) sys_write fd buf count
-void graft_intercept_write(struct graft_process_data *child) {
+static void graft_intercept_write(struct graft_process_data *child) {
   if(child->in_syscall == 0) {
     unsigned int fd = (unsigned int) child->params[1];
     size_t count = (size_t) child->params[3];
@@ -42,3 +44,11 @@ void graft_intercept_write(struct graft_process_data *child) {
     //  "with %llu\n", child->syscall_out);
   }
 }
+
+int init_write_intercepts(struct graft_intercept_manager *graft_intercept_manager) {
+    #ifdef SYS_write
+	graft_intercept_manager->syscall_intercept_functions[SYS_write] = &graft_intercept_write;
+    #endif
+	return 0;
+}
+

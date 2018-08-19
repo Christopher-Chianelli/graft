@@ -15,9 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #include <intercepts/intercepts.h>
+#include <intercepts/intercept_loader.h>
 #include <file/file_manager.h>
+
+#include <sys/syscall.h>
 
 struct graft_open_file_request file_request;
 // (2) sys_open filename flags mode
@@ -125,4 +127,14 @@ void graft_intercept_open_at(struct graft_process_data *child) {
       file_request.file_path = NULL;
     }
   }
+}
+
+int init_open_intercepts(struct graft_intercept_manager *graft_intercept_manager) {
+    #ifdef SYS_open
+	graft_intercept_manager->syscall_intercept_functions[SYS_open] = &graft_intercept_open;
+    #endif
+    #ifdef SYS_openat
+    graft_intercept_manager->syscall_intercept_functions[SYS_openat] = &graft_intercept_open_at;
+    #endif
+	return 0;
 }

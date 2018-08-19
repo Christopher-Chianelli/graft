@@ -18,14 +18,48 @@
 
 #include <intercepts/intercepts.h>
 #include <intercepts/syscall_list.h>
+#include <intercepts/intercept_loader.h>
 
 #include <stdarg.h>
+#include <dirent.h>
 
 struct user_regs_struct regs;
 // Note: linux system calls are listed here:
 // http://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 
 #define MAX_VALID_SYSCALL (328)
+
+void (*intercept_functions[MAX_VALID_SYSCALL])(struct graft_process_data *);
+struct graft_intercept_manager graft_intercept_manager;
+
+static void default_syscall_handler(struct graft_process_data *child) {
+	graft_log_intercept(child->orig_syscall);
+}
+
+void init_intercepts(struct graft_config *config) {
+	for (int i = 0; i < MAX_VALID_SYSCALL; i++) {
+		intercept_functions[i] = &default_syscall_handler;
+	}
+	graft_intercept_manager.syscall_intercept_functions_count = MAX_VALID_SYSCALL;
+	graft_intercept_manager.syscall_intercept_functions = intercept_functions;
+	DIR *dir = opendir(config->default_intercept_directory);
+	struct dirent *entry;
+	char full_path_to_intercept[PATH_MAX];
+
+	  // TODO: Check for errors
+	while ((entry = readdir(dir)) != NULL) {
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+			continue;
+		}
+	    strcpy(full_path_to_intercept, config->default_intercept_directory);
+	    strcat(full_path_to_intercept, "/");
+	    strcat(full_path_to_intercept, entry->d_name);
+	    char *location_of_dot = strrchr(entry->d_name, '.');
+	    *location_of_dot = '\0';
+	    load_intercept_from_file(&graft_intercept_manager, entry->d_name, full_path_to_intercept);
+	}
+	closedir(dir);
+}
 
 void intercept_start(struct graft_process_data *child) {
   ptrace(PTRACE_GETREGS, child->pid, NULL, &regs);
@@ -194,28 +228,9 @@ void graft_log_intercept(int syscall, ...) {
 void handle_syscall(struct graft_process_data *child) {
 
   intercept_start(child);
-  if (!child->in_syscall) {
+  if (child->in_syscall) {
     child->orig_syscall = child->params[0];
   }
-  switch (child->orig_syscall) {
-  case SYS_read:
-    graft_intercept_read(child);
-    break;
-  case SYS_write:
-    graft_intercept_write(child);
-    break;
-  case SYS_open:
-    graft_intercept_open(child);
-    break;
-  case SYS_openat:
-    graft_intercept_open_at(child);
-    break;
-  case SYS_getdents:
-    graft_intercept_getdents(child);
-    break;
-  default:
-    graft_log_intercept((int) child->params[0]);
-    break;
-  }
+  intercept_functions[child->orig_syscall](child);
   intercept_end(child);
 }
